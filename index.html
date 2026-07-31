@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Expert Analysis Tool | Professional Trading Analysis Tool for Deriv</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#0e1420; --card:#161d2b; --border:#2a3550; --text:#e6edf3; --muted:#9fb0c8;
+          --accent:#2f7bff; --green:#1d6f42; --yellow:#b0862f; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+         font-family:"Segoe UI",Roboto,sans-serif; display:flex; align-items:center; justify-content:center; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px;
+          padding:36px 32px; width:420px; box-shadow:0 18px 50px rgba(0,0,0,.45); text-align:center; }
+  .lock { font-size:44px; } h1 { font-size:22px; margin:10px 0 2px; }
+  .sub { color:var(--muted); margin:0 0 16px; font-size:15px; }
+  .hint { color:#6d7f99; font-size:13px; margin-bottom:18px; }
+  .small { font-size:12px; color:#8fa0ba; margin:14px 0; }
+  .buy { display:block; margin:10px 0; padding:11px; border-radius:8px; background:var(--green);
+         color:#fff; font-weight:600; text-decoration:none; font-size:14px; }
+  .note { font-size:12px; color:var(--yellow); margin:8px 0 14px; }
+  .signup { display:block; font-size:13px; color:var(--accent); text-decoration:none; }
+  .tool-wrap { width:100%; }
+  .tool-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .tool-head select { background:var(--bg); color:var(--text); border:1px solid var(--border);
+                      border-radius:8px; padding:8px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .panel { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px; }
+  .panel h3 { margin:0 0 10px; font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .digit-big { font-size:44px; font-weight:800; color:var(--accent); line-height:1; }
+  .conf { font-size:22px; font-weight:700; margin-top:4px; }
+  .timer { font-size:13px; color:var(--muted); margin-top:8px; }
+  .popup { display:none; margin-top:14px; padding:12px; border-radius:10px;
+           background:rgba(29,111,66,.15); border:1px solid var(--green); font-size:14px; }
+  .trade-btn { display:none; width:100%; margin-top:10px; padding:12px; border:0; border-radius:8px;
+               background:var(--green); color:#fff; font-weight:700; font-size:15px; cursor:pointer; text-decoration:none; }
+  .history { display:flex; flex-wrap:wrap; gap:4px; margin-top:10px; }
+  .tick { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px;
+          border-radius:6px; background:#1a2233; color:var(--muted); font-size:12px; }
+  .tick.highlight { background:var(--green); color:#fff; font-weight:700; }
+  .chart-box { margin-top:14px; }
+  canvas { max-width:100%; }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN GATE ================= -->
+<div class="card" id="login-screen">
+  <div class="lock">🔐</div>
+  <h1>Expert Trader</h1>
+  <p class="sub">Welcome Back</p>
+  <p class="hint">Enter your credentials</p>
+
+  <!-- credentials live in a shadow root (matches live-site anti-scraper behavior) -->
+  <expert-login></expert-login>
+
+  <p class="small"><label><input type="checkbox"> I agree to the <a href="#" onclick="return false">Terms</a></label></p>
+  <a class="buy" id="buy-link" href="#">Get login credentials @100$</a>
+  <p class="note"><strong>Note:</strong> Use your own credentials as per your ID</p>
+  <a class="signup" id="affiliate-link" href="#" target="_blank" rel="noopener">Sign up Deriv</a>
+</div>
+
+<!-- ================= ANALYSIS ENGINE ================= -->
+<div class="card tool-wrap" id="tool" style="display:none">
+  <h1>Expert Analysis Tool</h1>
+  <p class="sub">Digit Frequency &amp; Signal Engine — Deriv Volatility Indices</p>
+
+  <div class="tool-head">
+    <label style="font-size:13px;color:var(--muted)">Select Market:
+      <select id="market-select">
+        <option value="1HZ100V">Volatility 100 (1s)</option>
+        <option value="1HZ50V">Volatility 50 (1s)</option>
+        <option value="R_100">Volatility 100</option>
+        <option value="R_75">Volatility 75</option>
+        <option value="R_50">Volatility 50</option>
+        <option value="R_25">Volatility 25</option>
+        <option value="R_10">Volatility 10</option>
+      </select>
+    </label>
+    <a class="signup" href="#" target="_blank" rel="noopener">Open Deriv Account 🔗</a>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h3>Predicted Digit</h3>
+      <div class="digit-big" id="predicted-digit-display">-</div>
+      <div class="timer" id="timer">Next prediction in: 10s</div>
+    </div>
+    <div class="panel">
+      <h3>Confidence</h3>
+      <div class="conf" id="confidence-score">-%</div>
+      <div class="timer">Window: last 1000 ticks</div>
+    </div>
+  </div>
+
+  <div class="popup" id="popup">💡 Trade Signal: Conditions met! Confidence ≥ 80%!</div>
+  <a class="trade-btn" id="trade-button" href="#" target="_blank" rel="noopener">Place Trade Now</a>
+
+  <div class="panel" style="margin-top:14px">
+    <h3>Digit History (highlight = predicted)</h3>
+    <div class="history" id="tick-history">Waiting for ticks…</div>
+  </div>
+
+  <div class="chart-box">
+    <div class="panel"><h3>Digit Frequency</h3><canvas id="digitChart"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="panel"><h3>Digit Bias Map</h3><canvas id="biasChart"></canvas></div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   Expert Analysis Tool — single-file build (fixed)
+   Changes: robust history fetch, don't wipe history when starting WS,
+            immediate UI updates when live ticks arrive, better logging.
+   ================================================================ */
+
+// ---- EDIT THESE (deployment config) ----
+const LOGIN_USER = "chess";          // hardcoded client-side creds (kit pattern)
+const LOGIN_PASS = "chess";
+const AFFILIATE_URL = "https://track.deriv.com/_6jg_DVn4bXlMjdsyM5hasGNd7ZgqdRLk/1/";
+const CONTACT_URL = "#";             // operator contact (WhatsApp/Telegram)
+// --------------------------------------
+
+const SIGNAL_THRESHOLD = 80;         // show TRADE signal at >= 80%
+const COUNTDOWN_SEC = 10;
+const MAX_TICKS = 1000;
+const WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=1089";
+const HISTORY_URL = "https://api.binaryws.com/v3/ticks_history";
+
+document.getElementById("affiliate-link").href = AFFILIATE_URL;
+document.getElementById("buy-link").href = CONTACT_URL;
+document.querySelectorAll("#tool a.signup").forEach(a => a.href = AFFILIATE_URL);
+document.getElementById("trade-button").href = AFFILIATE_URL;
+
+/* ---------------- login gate (shadow DOM) ---------------- */
+class ExpertLogin extends HTMLElement {
+  connectedCallback() {
+    const shadow = this.attachShadow({ mode: "open" });
+    shadow.innerHTML = `
+      <style>
+        :host { display:block; text-align:left; }
+        input { width:100%; box-sizing:border-box; margin:6px 0; padding:11px 12px;
+                border-radius:8px; border:1px solid #2a3550; background:#0e1420; color:#e6edf3; font-size:14px; }
+        button { width:100%; margin-top:10px; padding:12px; border:0; border-radius:8px;
+                 background:#2f7bff; color:#fff; font-weight:600; font-size:15px; cursor:pointer; }
+        .err { color:#f87171; font-size:12px; min-height:16px; margin-top:4px; }
+      </style>
+      <form id="f">
+        <input type="text" id="username" placeholder="Email / User ID" autocomplete="username" required>
+        <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+        <button type="submit">Login</button>
+        <div class="err" id="err"></div>
+      </form>`;
+    const f = shadow.getElementById("f");
+    f.addEventListener("submit", (e) => { e.preventDefault(); this.tryLogin(); });
+  }
+  tryLogin() {
+    const s = this.shadowRoot;
+    const u = s.getElementById("username").value.trim();
+    const p = s.getElementById("password").value.trim();
+    if (u === LOGIN_USER && p === LOGIN_PASS) {
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("tool").style.display = "block";
+      initializeTool();
+    } else {
+      s.getElementById("err").textContent = "Incorrect username or password.";
+    }
+  }
+}
+customElements.define("expert-login", ExpertLogin);
+
+/* ---------------- engine ---------------- */
+let ws = null;
+window.ws = null; // expose for debugging
+window.tickBuffer = []; // expose for debugging
+let countdown = COUNTDOWN_SEC, countdownInterval = null, digitChart = null, biasChart = null;
+
+function getLastDigit(price) { return parseInt(price.toString().slice(-1)); }
+
+function getDigitFrequency(arr) {
+  const freq = Array(10).fill(0);
+  arr.forEach(d => { if (typeof d === 'number' && !Number.isNaN(d)) freq[d]++; });
+  return freq;
+}
+
+function getMostFrequentDigit(arr) {
+  if (!arr || arr.length === 0) return { digit: null, confidence: "0.00" };
+  const freq = getDigitFrequency(arr);
+  const max = Math.max(...freq);
+  const index = freq.indexOf(max);
+  const confidence = ((max / arr.length) * 100).toFixed(2);
+  return { digit: index, confidence };
+}
+
+function updateTickHistory(predictedDigit) {
+  const div = document.getElementById("tick-history");
+  div.innerHTML = "";
+  if (!tickBuffer || tickBuffer.length === 0) {
+    div.textContent = "Waiting for ticks…";
+    return;
+  }
+  // if predictedDigit not supplied, compute from buffer
+  if (typeof predictedDigit === "undefined" || predictedDigit === null) {
+    const res = getMostFrequentDigit(tickBuffer);
+    predictedDigit = res.digit;
+  }
+  const display = tickBuffer.slice(-60);
+  display.forEach(d => {
+    const span = document.createElement("span");
+    span.textContent = d;
+    span.className = "tick" + (d === predictedDigit ? " highlight" : "");
+    div.appendChild(span);
+  });
+}
+
+function updateCharts() {
+  const freq = getDigitFrequency(tickBuffer);
+  const labels = [...Array(10).keys()].map(String);
+
+  if (!digitChart && window.Chart) {
+    digitChart = new Chart(document.getElementById("digitChart"), {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Digit Frequency', data: freq, backgroundColor: '#2f7bff' }] },
+      options: { responsive: true, plugins: { legend: { display: false } },
+                 scales: { y: { beginAtZero: true, precision: 0, ticks: { color: '#9fb0c8' } },
+                           x: { ticks: { color: '#9fb0c8' } } } }
+    });
+  } else if (digitChart) { digitChart.data.datasets[0].data = freq; digitChart.update(); }
+
+  if (!biasChart && window.Chart) {
+    biasChart = new Chart(document.getElementById("biasChart"), {
+      type: 'radar',
+      data: { labels, datasets: [{ label: 'Digit Bias Map', data: freq,
+               backgroundColor: 'rgba(47,123,255,0.3)', borderColor: '#1d4ed8', borderWidth: 2 }] },
+      options: { responsive: true, plugins: { legend: { display: false } },
+                 scales: { r: { beginAtZero: true, ticks: { display: false } } } }
+    });
+  } else if (biasChart) { biasChart.data.datasets[0].data = freq; biasChart.update(); }
+}
+
+function showPrediction() {
+  const predEl = document.getElementById("predicted-digit-display");
+  const confEl = document.getElementById("confidence-score");
+  const popup = document.getElementById("popup");
+  const tradeBtn = document.getElementById("trade-button");
+
+  if (!tickBuffer || tickBuffer.length === 0) {
+    predEl.textContent = "-";
+    confEl.textContent = "-%";
+    popup.style.display = "none";
+    tradeBtn.style.display = "none";
+    return;
+  }
+  const { digit, confidence } = getMostFrequentDigit(tickBuffer);
+  predEl.textContent = (digit === null ? "-" : digit);
+  confEl.textContent = confidence + "%";
+  updateTickHistory(digit);
+  const show = parseFloat(confidence) >= SIGNAL_THRESHOLD;
+  popup.style.display = show ? "block" : "none";
+  tradeBtn.style.display = show ? "block" : "none";
+}
+
+function updateCountdown() {
+  document.getElementById("timer").textContent = `Next prediction in: ${countdown}s`;
+  countdown--;
+  if (countdown < 0) { showPrediction(); countdown = COUNTDOWN_SEC; }
+}
+
+function startCountdown() {
+  clearInterval(countdownInterval);
+  countdown = COUNTDOWN_SEC;
+  countdownInterval = setInterval(updateCountdown, 1000);
+}
+
+function startLiveTicks(market) {
+  // Do not wipe tickBuffer here — we want to keep fetched history
+  try {
+    if (ws) {
+      try { ws.close(); } catch (e) { console.warn("Error closing previous ws:", e); }
+      ws = null;
+      window.ws = null;
+    }
+    console.info("Connecting WS to", WS_URL, "for market", market);
+    ws = new WebSocket(WS_URL);
+    window.ws = ws;
+    ws.onopen = () => {
+      console.info("WS open, subscribing to", market);
+      ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
+      startCountdown();
+    };
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.tick && data.tick.quote !== undefined) {
+          const d = getLastDigit(data.tick.quote);
+          tickBuffer.push(d);
+          if (tickBuffer.length > MAX_TICKS) tickBuffer.shift();
+          // immediate UI updates on new tick
+          updateCharts();
+          showPrediction();
+          updateTickHistory(); // showPrediction already calls updateTickHistory with prediction
+        }
+      } catch (err) {
+        console.error("Error processing ws message:", err, event.data);
+      }
+    };
+    ws.onerror = (e) => { console.error("WebSocket error:", e); };
+    ws.onclose = (e) => { console.warn("WebSocket closed:", e && e.code, e && e.reason); };
+  } catch (err) {
+    console.error("startLiveTicks error:", err);
+  }
+}
+
+async function fetchTickHistory(market, count = MAX_TICKS) {
+  try {
+    console.info("Fetching tick history for", market, "count", count);
+    const res = await fetch(HISTORY_URL, {
+      method: "POST",
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticks_history: market, adjust_start_time: 1, count,
+                             end: "latest", start: 1, style: "ticks" })
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "<no-body>");
+      console.error("ticks_history HTTP error", res.status, text);
+      return [];
+    }
+    const data = await res.json();
+    // defensive: different API shapes
+    if (data.history && Array.isArray(data.history.prices)) {
+      console.info("History fetched: prices length", data.history.prices.length);
+      return data.history.prices.map(getLastDigit);
+    }
+    if (data.history && Array.isArray(data.history.ticks)) {
+      console.info("History fetched: ticks length", data.history.ticks.length);
+      return data.history.ticks.map(t => {
+        // tick objects sometimes: {quote: "...", ...}
+        if (t && typeof t === 'object' && t.quote !== undefined) return getLastDigit(t.quote);
+        return getLastDigit(t);
+      });
+    }
+    console.warn("Unexpected history response shape", data);
+    return [];
+  } catch (err) {
+    console.error("history fetch error:", err);
+    return [];
+  }
+}
+
+async function initializeTool() {
+  try {
+    const market = document.getElementById("market-select").value;
+    const history = await fetchTickHistory(market, MAX_TICKS);
+    // Use fetched history if any; otherwise keep any existing buffer (or empty)
+    if (history && history.length > 0) {
+      tickBuffer = history.slice(-MAX_TICKS);
+      window.tickBuffer = tickBuffer;
+    } else {
+      console.info("No history returned or fetch failed; using live ticks only");
+    }
+    updateCharts();
+    updateTickHistory();
+    showPrediction();
+    startLiveTicks(market);
+  } catch (err) {
+    console.error("initializeTool error:", err);
+  }
+}
+
+document.getElementById("market-select").addEventListener("change", initializeTool);
+</script>
+</body>
+</html>
